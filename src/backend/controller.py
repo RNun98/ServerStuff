@@ -2,63 +2,77 @@
 # -*- coding: UTF-8 -*-
 
 import cherrypy
-import csv, os, requests
-from src.python.model import get_average_temp
-
-DEFAULT_CITY = "miami"
-DEFAULT_COUNTRY = "us"
-DEFAULT_DAYS = 7
-
-CITY_LIST_PATH = '../../data/worldcities.csv'
-
-config = {
-    'global' : {
-        'server.socket_host' : '127.0.0.1',
-        'server.socket_port' : 8080
-    }
-}
-
-
-def city_is_valid(city):
-    # with open(CITY_LIST_PATH, 'r') as csv_file:
-    #     data = csv.DictReader(csv_file)
-
-    return False
-
-
-# function checkCityOrCountry($name)
-# {
-#     $countries = file_get_contents('https://api.vk.com/method/database.getCities?need_all=1&count=1000&lang=en');
-#     $arr = json_decode($countries, true);
-#     foreach ($arr['response'] as $country) {
-#         if (mb_strtolower($country['title']) === mb_strtolower($name)) {
-#             return true;
-#         }
-#     }
-
-#     return false;
-
-def country_is_valid(country):
-    return True
-
-def valid_num_days(days_out):
-    return days_out > 0 and days_out < 31
-
-
-class App(object):
-    @cherrypy.expose
-    def weather(self, city):
-        # city = city if city_is_valid(city) else DEFAULT_CITY
-        city = "miami"
-        # country = country if country_is_valid(country) else DEFAULT_COUNTRY
-        # days_out = days_out if valid_num_days(days_out) else DEFAULT_DAYS
-
-        input_dict = {"city" : city}
-        weather_data = get_average_temp(input_dict)
-        return f"The average 30 day forecast for {city.title()}: {weather_data}"
-            
+import csv
+import os
+import requests
+from model import get_average_temp, generate_forecast_dates, generate_forecast_plot
 
 
         
-if __name__ == '__main__':
+class App(object):
+
+    def __init__(self):
+        self.DEFAULT_CITY = "miami"
+        self.DEFAULT_COUNTRY = "us"
+        self.DEFAULT_DAYS = 7
+
+        self.CITY_LIST_PATH = "C:\\Users\\Phantom\\projects\\ServerStuff\\data\\worldcities.csv"
+
+
+    
+    def city_is_valid(self, input_city):
+        """
+        Determines the validity of the user input.
+        @param input_city: user input
+        @return whether the city is a valid city
+        """
+        data = None
+        valid_city = False
+        input_city = input_city.title()
+
+        with open(self.CITY_LIST_PATH, 'r', encoding = "utf8") as csv_file:
+            data = csv.DictReader(csv_file)
+            for row in data:
+                if input_city == row["city"]:
+                    valid_city = True
+                    break
+
+            csv_file.close()
+            
+        return valid_city
+
+    def country_is_valid(self, country):
+        return True
+
+    def num_days_valid(self, days_out):
+        return days_out.isnumeric() and int(days_out) > 0 and int(days_out) < 30
+    
+    @cherrypy.expose
+    def weather(self, city, num_days_out):
+        city = city if self.city_is_valid(city) else self.DEFAULT_CITY
+        
+        # country = country if country_is_valid(country) else DEFAULT_COUNTRY
+
+        num_days_out = int(num_days_out) if self.num_days_valid(num_days_out) else self.DEFAULT_DAYS
+
+        query_dict = {"city" : city}
+
+        avg_temps = get_average_temp(query_dict)
+        forecast_dates = generate_forecast_dates(num_days_out)
+        forecast_html_plot = generate_forecast_plot(forecast_dates, avg_temps, city)
+        
+        return forecast_html_plot
+            
+def main():
+    config = {
+            'global' : {
+                'server.socket_host' : '127.0.0.1',
+                'server.socket_port' : 8080
+            }
+        }
+
     cherrypy.quickstart(App(), '/', config)
+        
+if __name__ == '__main__':
+    main()
+    
